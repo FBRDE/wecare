@@ -1,0 +1,73 @@
+version: '3.3'
+
+services:
+
+  # MySQL
+  mysql_db:
+    image: mysql:latest
+    container_name: mysql_db
+    volumes:
+      - "./docker_db/mysql/db_prod.sql:/docker-entrypoint-initdb.d/0_init.sql"
+    environment:
+      MYSQL_ROOT_PASSWORD: Abc123**
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_USER: user
+      MYSQL_PASSWORD: Abc123**
+      MYSQL_DATABASE: mediscreendb
+    ports:
+      - 3306:3306
+    networks:
+      - web-server
+    restart: always
+
+  # patient microservice
+  patient:
+    image: patient
+    container_name: patient
+    build:
+      context: ./patient/
+      dockerfile: Dockerfile
+    ports:
+      - 8081:8081
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql_db:3306/mediscreendb?serverTimezone=Europe/Paris
+      - SPRING_DATASOURCE_USERNAME=user
+      - SPRING_DATASOURCE_PASSWORD=Abc123**
+    networks:
+      - web-server
+    depends_on:
+      - mysql_db
+    restart: always
+
+#    # patient note microservice
+  note:
+    image: note
+    container_name: note
+    build:
+      context: ./note/
+      dockerfile: Dockerfile
+    ports:
+      - 8082:8082
+    networks:
+      - web-server
+    restart: always
+
+  # patient report Microservice
+  report:
+    image: report
+    container_name: report
+    build:
+      context: ./report/
+      dockerfile: Dockerfile
+    environment:
+      - PROXY_PATIENT=http://patient:8081
+      - PROXY_NOTE=http://note:8082
+    ports:
+      - 8084:8084
+    networks:
+      - web-server
+    restart: always
+
+networks:
+  web-server:
+    driver: bridge
